@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en-US">
+
+<head>
+  <title>Gorilla Websocket</title>
+</head>
+
+<body>
+  <h1>Hello WebSocket</h1>
+
+
+  <script>
+    let ws = new WebSocket("ws://localhost:3000/v1/ws");
+
+    ws.onopen = function (event) {
+      console.log("Socket opened successfully");
+      ws.send("foo");
+    }
+
+    ws.addEventListener("message", function (e) {
+      console.log(e);
+    });
+  </script>
+</body>
+
+</html>

@@ -8,50 +8,33 @@
 <body>
   <h1>Hello WebSocket</h1>
 
+  <input type="text" placeholder="message" id="textbox">
+  <button id="button">Send</button>
+  <div id="chatArea"></div>
 
   <script>
-    // sends the word "foo" to /v1/ws, which echos it back to the client-side
-    function sendToSocketFromFrontend() {
-      let ws = new WebSocket("ws://localhost:3000/v1/ws"); // creates the websocket connection to the server, we create the websocket in GO
-      ws.onopen = function (event) {
-        console.log("Socket opened successfully");
-        ws.send("foo");
-      }
+    let ws = new WebSocket("ws://localhost:3000/v1/ws");
 
-      ws.addEventListener("message", function (e) {
-        console.log(e);
-      });
+    let button = document.getElementById("button");
+
+    button.addEventListener("click", function (event) {
+      var text = document.getElementById("textbox").value;
+      ws.send(text);
+    });
+
+    ws.onopen = function (event) {
+      console.log("websocket opened");
     }
 
-    // sends the word "bar" to /v2/ws route, which prints it out on the server console
-    function sendToGoBackend() {
-      let ws = new WebSocket("ws://localhost:3000/v2/ws");
-
-      ws.onopen = function (event) { // creating a new instance of openSocket, because we are doing v2, which is a new socket
-        ws.send("bar");
-      }
+    ws.onmessage = function (event) {
+      var chatArea = document.createElement("div");
+      chatArea.innerHTML = event.data;
+      document.getElementById("chatArea").appendChild(chatArea);
     }
 
-    function sendMessageEveryFiveSeconds() {
-      let ws = new WebSocket("ws://localhost:3000/v3/ws");
-
-      ws.addEventListener("message", function (e) {
-        console.log(JSON.parse(e.data)); // parse constructs the incoming string as an object
-      });
-    }
-
-    function showWhenClientDisconnects() {
-      let ws = new WebSocket("ws://localhost:3000/v4/ws");
-      console.log("connection opened!");
-      console.log("ready state = ", ws.readyState);
-      console.log("closing the connection");
+    window.onbeforeunload = function (event) {
       ws.close();
-      console.log("ready state should be 3 (a closed connection) = ", ws.readyState)
     }
-    // sendToSocketFromFrontend();
-    // sendToGoBackend();
-    // sendMessageEveryFiveSeconds();
-    // showWhenClientDisconnects();
   </script>
 </body>
 

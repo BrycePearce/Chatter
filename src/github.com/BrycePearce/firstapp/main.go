@@ -1,5 +1,6 @@
 package main // main is the entry point of the application
 
+// data goes from read()/write(), passes through Client to the hub, then to start()
 // go run x y
 import (
 	"net/http"
@@ -25,16 +26,15 @@ var hub = Hub{
 	clients:      make(map[*Client]bool),
 }
 
-// todo: figure out why two case conn
-// Runs forever as a goroutine
+// Runs forever as a goroutine, fires when the channel (hub) recieves data
 func (hub *Hub) start() {
 	for { // this for loop continously listens for messages
-		// select is similar to switch/case
+		// select is similar to switch/case.
 		select { // formally, select waits/blocks a message until one of its cases can run
-		case conn := <-hub.addClient: // case for adding a client. <- adds 'hub.addClient'as an item to conn
+		case conn := <-hub.addClient: // case for adding a client. <- adds 'hub.addClient'as an item to conn. Runs whenever the hub
 			hub.clients[conn] = true
 		case conn := <-hub.removeClient: // case for removing a client. <- adds 'hub.removeClient' as an item to conn
-			if _, ok := hub.clients[conn]; ok {
+			if _, ok := hub.clients[conn]; ok { // setting the variable and using it all in the if, helps with scope
 				delete(hub.clients, conn) // The delete built-in function deletes the element with the specified key (m[key]) from the map. func delete(m map[Type]Type1, key Type)
 				close(conn.send)          // close indicated that no more values will be sent on it https://gobyexample.com/closing-channels
 			}
@@ -52,10 +52,11 @@ func (hub *Hub) start() {
 }
 
 // Pass data through this channel from the client functions below, which broadcasts the sent messages
+// client stores the client's websocket connection and sends/recieves messages
 type Client struct {
 	ws *websocket.Conn // define this here so we can reference it in places such as write()
 	// Hub passes broadcast messages to this channel
-	send chan []byte // todo: figure out what this is doing. Think it just creates a byte array that can reallocate memory over and over, thus speeding things up a bit - http://openmymind.net/Introduction-To-Go-Buffered-Channels/
+	send chan []byte // Creates a byte array that can reallocate memory over and over, thus speeding things up a bit - http://openmymind.net/Introduction-To-Go-Buffered-Channels/
 }
 
 // Hub broadcasts a new message and this fires
@@ -110,8 +111,8 @@ func wsPage(res http.ResponseWriter, req *http.Request) {
 	}
 
 	hub.addClient <- client
-
-	go client.write()
+	// start write/read after adding the new client
+	go client.write() // go starts the go routine, which runs concurrently with other functions
 	go client.read()
 }
 

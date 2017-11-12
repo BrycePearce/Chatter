@@ -4,7 +4,6 @@ package main // main is the entry point of the application
 // go run x y
 import (
 	"net/http"
-
 	"github.com/gorilla/websocket"
 )
 
@@ -18,12 +17,22 @@ type Hub struct {
 	removeClient chan *Client
 }
 
-// initalize a new hub
-var hub = Hub{
+// initalize a new hub for the application to use
+var hub = Hub {
 	broadcast:    make(chan []byte),
 	addClient:    make(chan *Client),
 	removeClient: make(chan *Client),
 	clients:      make(map[*Client]bool),
+}
+
+// Pass data through this channel from the client functions below, which broadcasts the sent messages
+// client stores the client's websocket connection and sends/recieves messages
+type Client struct {
+	ws *websocket.Conn // define this here so we can reference it in places such as write()
+	id string // the unique id of the sender
+	// Hub passes broadcast messages to this channel
+	send chan []byte // The message waiting to be sent. Creates a byte array that can reallocate memory over and over, thus speeding things up a bit - http://openmymind.net/Introduction-To-Go-Buffered-Channels/
+
 }
 
 // Runs forever as a goroutine, fires when the channel (hub) recieves data
@@ -31,7 +40,8 @@ func (hub *Hub) start() {
 	for { // this for loop continously listens for messages
 		// select is similar to switch/case.
 		select { // formally, select waits/blocks a message until one of its cases can run
-		case conn := <-hub.addClient: // case for adding a client. <- adds 'hub.addClient'as an item to conn. Runs whenever the hub
+		case conn := <-hub.addClient: // case for adding a client. <- adds 'hub.addClient'as an item to conn. Runs whenever the hub.addClient has data
+		// todo: announce which client joined by id or nick here
 			hub.clients[conn] = true
 		case conn := <-hub.removeClient: // case for removing a client. <- adds 'hub.removeClient' as an item to conn
 			if _, ok := hub.clients[conn]; ok { // setting the variable and using it all in the if, helps with scope
@@ -49,14 +59,6 @@ func (hub *Hub) start() {
 			}
 		}
 	}
-}
-
-// Pass data through this channel from the client functions below, which broadcasts the sent messages
-// client stores the client's websocket connection and sends/recieves messages
-type Client struct {
-	ws *websocket.Conn // define this here so we can reference it in places such as write()
-	// Hub passes broadcast messages to this channel
-	send chan []byte // Creates a byte array that can reallocate memory over and over, thus speeding things up a bit - http://openmymind.net/Introduction-To-Go-Buffered-Channels/
 }
 
 // Hub broadcasts a new message and this fires
@@ -80,7 +82,7 @@ func (c *Client) write() {
 
 // New message received, so pass it to the Hub
 func (c *Client) read() {
-	defer func() {
+	defer func() { // if there is an error reading the websocket data, remove that client. (most likely due to disconnection)
 		hub.removeClient <- c // define client as removeClient as defined in our Hub
 		c.ws.Close()          // close the websocket connection
 	}()
@@ -92,7 +94,7 @@ func (c *Client) read() {
 			c.ws.Close() // close the websocket connection
 			break
 		}
-		// otherwise, broadcast the message to the hub
+		// otherwise, broadcast the message to the hub	
 		hub.broadcast <- message
 	}
 }
